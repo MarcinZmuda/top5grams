@@ -7,11 +7,14 @@ from collections import Counter
 from nltk import ngrams
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
+from apify_client import ApifyClient
 
-# Pobierz klucz API z secrets.toml
+# === API keys ===
 SERP_API_KEY = os.getenv("SERPAPI_API_KEY")
+APIFY_API_TOKEN = os.getenv("APIFY_API_TOKEN")
+apify_client = ApifyClient(APIFY_API_TOKEN)
 
-# Pobierz top 5 wyników Google z SERPAPI
+# === Pobieranie wyników z Google (SERP API) ===
 def get_google_results(query):
     url = "https://serpapi.com/search"
     params = {
@@ -26,18 +29,26 @@ def get_google_results(query):
     results = res.json()
     return [r["link"] for r in results.get("organic_results", [])][:5]
 
-# Wyciągnij tekst z danej strony
+# === Pobieranie treści przez Apify Web Scraper ===
 def extract_text(url):
     try:
-        page = requests.get(url, timeout=8, headers={"User-Agent": "Mozilla/5.0"})
-        soup = BeautifulSoup(page.text, "html.parser")
-        for s in soup(["script", "style", "header", "footer", "nav"]):
-            s.extract()
-        return soup.get_text(separator=" ", strip=True)
-    except:
+        run = apify_client.actor("apify/web-scraper").call(run_input={
+            "startUrls": [{"url": url}],
+            "pageFunction": """async function pageFunction(context) {
+                return {
+                    url: context.request.url,
+                    text: document.body.innerText
+                };
+            }""",
+            "proxyConfiguration": { "useApifyProxy": True }
+        })
+        items = apify_client.dataset(run["defaultDatasetId"]).list_items().get("items", [])
+        return items[0]["text"] if items else ""
+    except Exception as e:
+        print(f"Błąd pobierania z Apify dla {url}: {e}")
         return ""
 
-# Generuj n-gramy z tekstu
+# === Generowanie n-gramów ===
 def generate_ngrams(text, n):
     tokens = [t.lower() for t in text.split() if t.isalpha()]
     return [" ".join(gram) for gram in ngrams(tokens, n)]
@@ -49,9 +60,16 @@ query = st.text_input("Wpisz słowo kluczowe", placeholder="np. audyt SEO")
 if st.button("Analizuj") and query:
     with st.spinner("Pobieram dane..."):
         urls = get_google_results(query)
-        all_text = " ".join([extract_text(url) for url in urls])
-        ngram_data = []
+        st.write("🔗 Wyniki Google:", urls)
 
+        all_text = ""
+        for url in urls:
+            st.write(f"📄 Pobieram z: {url}")
+            tekst = extract_text(url)
+            st.write(f"✅ Długość treści: {len(tekst)} znaków")
+            all_text += tekst + " "
+
+        ngram_data = []
         for n in [1, 2, 3]:
             ngram_list = generate_ngrams(all_text, n)
             freq = Counter(ngram_list)

@@ -9,12 +9,12 @@ from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 from apify_client import ApifyClient
 
-# === POBIERZ KLUCZE Z secrets.toml ===
+# === API Keys ===
 SERP_API_KEY = os.getenv("SERPAPI_API_KEY")
 APIFY_API_TOKEN = os.getenv("APIFY_API_TOKEN")
 apify_client = ApifyClient(APIFY_API_TOKEN)
 
-# === FUNKCJA: Pobierz top 5 wyników z Google przez SERP API ===
+# === Pobieranie top 5 wyników z Google ===
 def get_google_results(query):
     url = "https://serpapi.com/search"
     params = {
@@ -26,18 +26,13 @@ def get_google_results(query):
         "num": 5
     }
 
-    # 🔍 DEBUG: sprawdź czy klucz API się odczytał
-    st.write("🛠️ SERPAPI_API_KEY:", SERP_API_KEY)
-
+    st.write("🛠️ SERPAPI_API_KEY:", SERP_API_KEY)  # DEBUG
     res = requests.get(url, params=params)
     results = res.json()
-
-    # 🔍 DEBUG: pokaż surową odpowiedź z SERP API
-    st.write("📦 Odpowiedź SERP API:", results)
-
+    st.write("📦 Odpowiedź SERP API:", results)    # DEBUG
     return [r["link"] for r in results.get("organic_results", [])][:5]
 
-# === FUNKCJA: Pobierz treść strony przez Apify Web Scraper ===
+# === Pobieranie treści strony przez Apify Web Scraper ===
 def extract_text(url):
     try:
         run = apify_client.actor("apify/web-scraper").call(run_input={
@@ -50,13 +45,16 @@ def extract_text(url):
             }""",
             "proxyConfiguration": { "useApifyProxy": True }
         })
-        items = apify_client.dataset(run["defaultDatasetId"]).list_items().get("items", [])
-        return items[0]["text"] if items else ""
+
+        result = apify_client.dataset(run["defaultDatasetId"]).list_items()
+        items = result["items"] if "items" in result else []
+
+        return items[0]["text"] if items and "text" in items[0] else ""
     except Exception as e:
         st.warning(f"Błąd pobierania z Apify dla {url}: {e}")
         return ""
 
-# === FUNKCJA: Generuj n-gramy z tekstu ===
+# === Generowanie n-gramów ===
 def generate_ngrams(text, n):
     tokens = [t.lower() for t in text.split() if t.isalpha()]
     return [" ".join(gram) for gram in ngrams(tokens, n)]

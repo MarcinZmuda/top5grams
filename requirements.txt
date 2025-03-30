@@ -5,3 +5,4 @@ nltk
 pandas
 wordcloud
 matplotlib
+apify-client

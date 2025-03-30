@@ -8,12 +8,12 @@ from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 from apify_client import ApifyClient
 
-# === POBIERZ KLUCZE API ZE STREAMLIT SECRETS ===
+# === API Keys ===
 SERP_API_KEY = os.getenv("SERPAPI_API_KEY")
 APIFY_API_TOKEN = os.getenv("APIFY_API_TOKEN")
 apify_client = ApifyClient(APIFY_API_TOKEN)
 
-# === POBIERZ WYNIKI Z SERPAPI ===
+# === Pobierz top 5 wyników z Google (SERP API) ===
 def get_google_results(query):
     url = "https://serpapi.com/search"
     params = {
@@ -31,7 +31,7 @@ def get_google_results(query):
     st.write("📦 Odpowiedź SERP API:", results)  # DEBUG
     return [r["link"] for r in results.get("organic_results", [])][:5]
 
-# === POBIERZ TREŚĆ STRONY Z APIFY WEB SCRAPER ===
+# === Pobierz tekst z każdej strony przez Apify Web Scraper ===
 def extract_text(url):
     try:
         run = apify_client.actor("apify/web-scraper").call(run_input={
@@ -45,19 +45,19 @@ def extract_text(url):
             "proxyConfiguration": { "useApifyProxy": True }
         })
 
-        # ListPage → używamy ["items"]
-        items = apify_client.dataset(run["defaultDatasetId"]).list_items()["items"]
+        items = apify_client.dataset(run["defaultDatasetId"]).list_items()
 
-        # Jeśli coś zostało zwrócone i zawiera klucz 'text'
-        if items and isinstance(items, list) and "text" in items[0]:
-            return items[0]["text"]
-        else:
-            return ""
+        # ✅ Poprawna obsługa ListPage
+        for item in items:
+            if "text" in item and item["text"].strip():
+                return item["text"]
+
+        return ""
     except Exception as e:
         st.warning(f"Błąd pobierania z Apify dla {url}: {e}")
         return ""
 
-# === GENEROWANIE N-GRAMÓW ===
+# === Generowanie n-gramów ===
 def generate_ngrams(text, n):
     tokens = [t.lower() for t in text.split() if t.isalpha()]
     return [" ".join(gram) for gram in ngrams(tokens, n)]

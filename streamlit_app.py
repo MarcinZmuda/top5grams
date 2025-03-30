@@ -9,7 +9,12 @@ from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 from apify_client import ApifyClient
 
-# === API keys ===
+# === POBIERZ KLUCZE Z secrets.toml ===
+SERP_API_KEY = os.getenv("SERPAPI_API_KEY")
+APIFY_API_TOKEN = os.getenv("APIFY_API_TOKEN")
+apify_client = ApifyClient(APIFY_API_TOKEN)
+
+# === FUNKCJA: Pobierz top 5 wyników z Google przez SERP API ===
 def get_google_results(query):
     url = "https://serpapi.com/search"
     params = {
@@ -21,14 +26,18 @@ def get_google_results(query):
         "num": 5
     }
 
-    # 🔍 DEBUG – sprawdź, czy klucz API się odczytał
-    st.write("🛠️ API Key:", SERP_API_KEY)
+    # 🔍 DEBUG: sprawdź czy klucz API się odczytał
+    st.write("🛠️ SERPAPI_API_KEY:", SERP_API_KEY)
 
     res = requests.get(url, params=params)
     results = res.json()
+
+    # 🔍 DEBUG: pokaż surową odpowiedź z SERP API
     st.write("📦 Odpowiedź SERP API:", results)
+
     return [r["link"] for r in results.get("organic_results", [])][:5]
-# === Pobieranie treści przez Apify Web Scraper ===
+
+# === FUNKCJA: Pobierz treść strony przez Apify Web Scraper ===
 def extract_text(url):
     try:
         run = apify_client.actor("apify/web-scraper").call(run_input={
@@ -47,7 +56,7 @@ def extract_text(url):
         st.warning(f"Błąd pobierania z Apify dla {url}: {e}")
         return ""
 
-# === Generowanie n-gramów ===
+# === FUNKCJA: Generuj n-gramy z tekstu ===
 def generate_ngrams(text, n):
     tokens = [t.lower() for t in text.split() if t.isalpha()]
     return [" ".join(gram) for gram in ngrams(tokens, n)]
@@ -73,13 +82,18 @@ if st.button("Analizuj") and query:
             ngram_list = generate_ngrams(all_text, n)
             freq = Counter(ngram_list)
             for k, v in freq.items():
-                ngram_data.append({"n-gram": k, "typ": f"{n}-gram", "liczba wystąpień": v})
+                ngram_data.append({
+                    "n-gram": k,
+                    "typ": f"{n}-gram",
+                    "liczba wystąpień": v
+                })
 
     if ngram_data:
         df = pd.DataFrame(ngram_data).sort_values("liczba wystąpień", ascending=False)
         st.success("Gotowe! ✅")
         st.subheader("📊 Najczęstsze n-gramy")
         st.dataframe(df.head(50), use_container_width=True)
+
         st.download_button("📥 Pobierz CSV", df.to_csv(index=False), "ngrams.csv", "text/csv")
 
         st.subheader("☁️ Word Cloud")

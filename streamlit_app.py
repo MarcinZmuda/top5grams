@@ -13,7 +13,7 @@ SERP_API_KEY = os.getenv("SERPAPI_API_KEY")
 APIFY_API_TOKEN = os.getenv("APIFY_API_TOKEN")
 apify_client = ApifyClient(APIFY_API_TOKEN)
 
-# === Pobierz top 5 wyników z Google (SERP API) ===
+# === Pobierz top 5 wyników z Google ===
 def get_google_results(query):
     url = "https://serpapi.com/search"
     params = {
@@ -24,11 +24,8 @@ def get_google_results(query):
         "api_key": SERP_API_KEY,
         "num": 5
     }
-
-    st.write("🛠️ SERPAPI_API_KEY:", SERP_API_KEY)  # DEBUG
     res = requests.get(url, params=params)
     results = res.json()
-    st.write("📦 Odpowiedź SERP API:", results)  # DEBUG
     return [r["link"] for r in results.get("organic_results", [])][:5]
 
 # === Pobierz tekst z każdej strony przez Apify Web Scraper ===
@@ -45,9 +42,9 @@ def extract_text(url):
             "proxyConfiguration": { "useApifyProxy": True }
         })
 
-        items = apify_client.dataset(run["defaultDatasetId"]).list_items()
+        list_page = apify_client.dataset(run["defaultDatasetId"]).list_items()
+        items = list_page.items()
 
-        # ✅ Poprawna obsługa ListPage
         for item in items:
             if "text" in item and item["text"].strip():
                 return item["text"]
@@ -69,7 +66,6 @@ query = st.text_input("Wpisz słowo kluczowe", placeholder="np. audyt SEO")
 if st.button("Analizuj") and query:
     with st.spinner("Pobieram dane..."):
         urls = get_google_results(query)
-        st.write("🔗 Wyniki Google:", urls)
 
         all_text = ""
         for url in urls:

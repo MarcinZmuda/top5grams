@@ -52,7 +52,22 @@ if st.button("Analizuj") and query:
             for k, v in freq.items():
                 ngram_data.append({"n-gram": k, "typ": f"{n}-gram", "liczba wystąpień": v})
 
-        df = pd.DataFrame(ngram_data).sort_values("liczba wystąpień", ascending=False)
+       if ngram_data:
+    df = pd.DataFrame(ngram_data).sort_values("liczba wystąpień", ascending=False)
+    st.success("Gotowe! ✅")
+    st.subheader("📊 Najczęstsze n-gramy")
+    st.dataframe(df.head(50), use_container_width=True)
+    st.download_button("📥 Pobierz CSV", df.to_csv(index=False), "ngrams.csv", "text/csv")
+
+    st.subheader("☁️ Word Cloud")
+    wc = WordCloud(width=800, height=400, background_color="white").generate(" ".join(df["n-gram"]))
+    fig, ax = plt.subplots()
+    ax.imshow(wc, interpolation="bilinear")
+    ax.axis("off")
+    st.pyplot(fig)
+else:
+    st.error("❌ Nie udało się pobrać treści z żadnej strony. Spróbuj inne słowo kluczowe.")
+
 
     st.success("Gotowe! ✅")
     st.subheader("📊 Najczęstsze n-gramy")

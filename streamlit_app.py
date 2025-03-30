@@ -2,19 +2,18 @@ import os
 import requests
 import streamlit as st
 import pandas as pd
-from bs4 import BeautifulSoup
 from collections import Counter
 from nltk import ngrams
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 from apify_client import ApifyClient
 
-# === API Keys ===
+# === POBIERZ KLUCZE API ZE STREAMLIT SECRETS ===
 SERP_API_KEY = os.getenv("SERPAPI_API_KEY")
 APIFY_API_TOKEN = os.getenv("APIFY_API_TOKEN")
 apify_client = ApifyClient(APIFY_API_TOKEN)
 
-# === Pobieranie top 5 wyników z Google ===
+# === POBIERZ WYNIKI Z SERPAPI ===
 def get_google_results(query):
     url = "https://serpapi.com/search"
     params = {
@@ -29,10 +28,10 @@ def get_google_results(query):
     st.write("🛠️ SERPAPI_API_KEY:", SERP_API_KEY)  # DEBUG
     res = requests.get(url, params=params)
     results = res.json()
-    st.write("📦 Odpowiedź SERP API:", results)    # DEBUG
+    st.write("📦 Odpowiedź SERP API:", results)  # DEBUG
     return [r["link"] for r in results.get("organic_results", [])][:5]
 
-# === Pobieranie treści strony przez Apify Web Scraper ===
+# === POBIERZ TREŚĆ STRONY Z APIFY WEB SCRAPER ===
 def extract_text(url):
     try:
         run = apify_client.actor("apify/web-scraper").call(run_input={
@@ -46,15 +45,19 @@ def extract_text(url):
             "proxyConfiguration": { "useApifyProxy": True }
         })
 
-        result = apify_client.dataset(run["defaultDatasetId"]).list_items()
-        items = result["items"] if "items" in result else []
+        # ListPage → używamy ["items"]
+        items = apify_client.dataset(run["defaultDatasetId"]).list_items()["items"]
 
-        return items[0]["text"] if items and "text" in items[0] else ""
+        # Jeśli coś zostało zwrócone i zawiera klucz 'text'
+        if items and isinstance(items, list) and "text" in items[0]:
+            return items[0]["text"]
+        else:
+            return ""
     except Exception as e:
         st.warning(f"Błąd pobierania z Apify dla {url}: {e}")
         return ""
 
-# === Generowanie n-gramów ===
+# === GENEROWANIE N-GRAMÓW ===
 def generate_ngrams(text, n):
     tokens = [t.lower() for t in text.split() if t.isalpha()]
     return [" ".join(gram) for gram in ngrams(tokens, n)]

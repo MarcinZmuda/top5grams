@@ -10,11 +10,6 @@ import matplotlib.pyplot as plt
 from apify_client import ApifyClient
 
 # === API keys ===
-SERP_API_KEY = os.getenv("SERPAPI_API_KEY")
-APIFY_API_TOKEN = os.getenv("APIFY_API_TOKEN")
-apify_client = ApifyClient(APIFY_API_TOKEN)
-
-# === Pobieranie wyników z Google (SERP API) ===
 def get_google_results(query):
     url = "https://serpapi.com/search"
     params = {
@@ -25,14 +20,14 @@ def get_google_results(query):
         "api_key": SERP_API_KEY,
         "num": 5
     }
+
+    # 🔍 DEBUG – sprawdź, czy klucz API się odczytał
+    st.write("🛠️ API Key:", SERP_API_KEY)
+
     res = requests.get(url, params=params)
     results = res.json()
-
-    # DEBUG: pokaż pełną odpowiedź z SERP API
     st.write("📦 Odpowiedź SERP API:", results)
-
     return [r["link"] for r in results.get("organic_results", [])][:5]
-
 # === Pobieranie treści przez Apify Web Scraper ===
 def extract_text(url):
     try:

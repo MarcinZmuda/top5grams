@@ -27,6 +27,10 @@ def get_google_results(query):
     }
     res = requests.get(url, params=params)
     results = res.json()
+
+    # DEBUG: pokaż pełną odpowiedź z SERP API
+    st.write("📦 Odpowiedź SERP API:", results)
+
     return [r["link"] for r in results.get("organic_results", [])][:5]
 
 # === Pobieranie treści przez Apify Web Scraper ===
@@ -45,7 +49,7 @@ def extract_text(url):
         items = apify_client.dataset(run["defaultDatasetId"]).list_items().get("items", [])
         return items[0]["text"] if items else ""
     except Exception as e:
-        print(f"Błąd pobierania z Apify dla {url}: {e}")
+        st.warning(f"Błąd pobierania z Apify dla {url}: {e}")
         return ""
 
 # === Generowanie n-gramów ===
